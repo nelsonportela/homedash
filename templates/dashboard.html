@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <style>
+    .group-border { border-color: var(--group-color, #374151); }
+    .transition-theme { transition: background-color 0.3s ease, color 0.3s ease; }
+    .fade-out { opacity: 0; transition: opacity 0.3s ease; }
+    .fade-in { opacity: 1; transition: opacity 0.3s ease; }
+    
+    /* Auto-fit grid for app items - responsive minimum widths */
+    .app-grid-auto { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Mobile: 2 columns */
+      gap: 0.75rem; 
+    }
+    
+    /* Larger screens: wider minimum for better proportions */
+    @media (min-width: 768px) {
+      .app-grid-auto {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+    }
+    
+    /* Two-line text standard for consistent card heights */
+    .app-text-two-line {
+      height: 2rem; /* Increased height for 2.5-3 lines to handle long names */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.3rem; /* Tighter line height for better fit */
+      overflow: hidden;
+      hyphens: auto;
+      word-wrap: break-word;
+      font-size: 0.95rem; /* Slightly smaller text for better fit */
+    }
+    
+    /* Fixed icon container for consistent card heights */
+    .app-icon-container {
+      height: 2.5rem; /* Fixed height for icon area */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.5rem;
+    }
+    
+    /* Custom dark mode styles to ensure they work */
+    .theme-bg { background-color: #f3f4f6; color: #1f2937; }
+    .dark .theme-bg { background-color: #111827; color: #ffffff; }
+    
+    .theme-card { background-color: #ffffff; border-color: #e5e7eb; }
+    .dark .theme-card { background-color: #1f2937; border-color: #374151; }
+    
+    .theme-card:hover { background-color: #f9fafb; }
+    .dark .theme-card:hover { background-color: #374151; }
+    
+    .theme-input { background-color: #ffffff; border-color: #d1d5db; color: #1f2937; }
+    .dark .theme-input { background-color: #1f2937; border-color: #4b5563; color: #ffffff; }
+    
+    .theme-button { background-color: #ffffff; border-color: #d1d5db; }
+    .dark .theme-button { background-color: #1f2937; border-color: #4b5563; }
+    
+    .theme-button:hover { background-color: #f9fafb; }
+    .dark .theme-button:hover { background-color: #374151; }
+    
+    .theme-text { color: #374151; }
+    .dark .theme-text { color: #d1d5db; }
+    
+    .theme-text-muted { color: #6b7280; }
+    .dark .theme-text-muted { color: #9ca3af; }
+  </style>
+</head>
+<body class="theme-bg min-h-screen py-8" data-default-theme="{{.DefaultTheme}}">
+  <div class="container mx-auto px-4">
+    <!-- Header with controls -->
+    <div class="flex flex-col items-center mb-8 gap-4 md:flex-row md:justify-between md:items-center">
+      <h1 class="text-3xl font-bold text-center md:text-left">{{.Title}}</h1>
+      
+      <div class="flex flex-col items-center gap-3 w-full md:flex-row md:gap-4 md:w-auto">
+        <!-- Search Bar -->
+        <div class="relative w-full md:w-auto">
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Search apps..." 
+            class="theme-input rounded-lg px-4 py-2 pl-10 w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+          <svg class="absolute left-3 top-2.5 h-5 w-5 theme-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+        </div>
+        
+        <!-- Button Group -->
+        <div class="flex items-center gap-3">
+          <!-- Theme Toggle -->
+          <button 
+            id="themeToggle" 
+            class="theme-button rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            title="Toggle theme"
+          >
+            <svg id="sunIcon" class="hidden h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+            <svg id="moonIcon" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+            </svg>
+          </button>
+          
+          <!-- Refresh Button -->
+          <button 
+            id="refreshBtn" 
+            class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            title="Refresh dashboard"
+          >
+            <svg id="refreshIcon" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- No results message -->
+    <div id="noResults" class="hidden text-center py-12">
+      <div class="text-6xl mb-4">🔍</div>
+      <h2 class="text-2xl font-semibold mb-2">No apps found</h2>
+      <p class="theme-text-muted">Try adjusting your search terms</p>
+    </div>
+
+    <!-- App Groups -->
+    <div id="appGroups" class="grid grid-cols-1 md:grid-cols-12 gap-6">
+      {{range .Groups}}
+      <div class="app-group col-span-1 {{if .GridCols}}md:col-span-{{.GridCols}}{{else}}md:col-span-12{{end}}" data-group-name="{{.Name}}">
+        <h2 class="text-xl font-semibold mb-3 theme-text border-b pb-2 group-border" 
+            {{if .Color}}style="--group-color: {{.Color}}; border-color: {{.Color}};"{{else}}style="border-color: #374151;"{{end}}>
+          {{.Name}}
+        </h2>
+        <div class="app-grid-auto">
+          {{range .Apps}}
+          <a href="{{.URL}}" target="_blank" 
+             class="app-item theme-card rounded-lg shadow-lg p-3 flex flex-col items-center transition-all duration-200 border" 
+             data-app-name="{{.Name}}" 
+             data-group="{{.Group}}">
+            <div class="app-icon-container">
+              {{if .IconURL}}
+                <img src="{{.IconURL}}" alt="{{.Title}} icon" class="w-10 h-10 object-contain">
+              {{else}}
+                <div class="text-2xl">{{.Icon}}</div>
+              {{end}}
+            </div>
+            <div class="app-text-two-line font-semibold">{{.Title}}</div>
+          </a>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
