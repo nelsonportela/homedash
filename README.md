@@ -11,6 +11,13 @@ A lightweight Go-based dashboard that automatically generates a homelab dashboar
 - Fallback to 🔗 emoji for apps without custom icons
 - No authentication required (internal use)
 
+## Docker Compose Files
+
+This project includes two Docker Compose configurations:
+
+- **`docker-compose.yml`** - Production deployment using published Docker image
+- **`docker-compose.dev.yml`** - Development setup with local build
+
 ## Quick Start
 
 1. Create a config.yaml file (optional, for custom icons):
@@ -26,15 +33,24 @@ A lightweight Go-based dashboard that automatically generates a homelab dashboar
    ```yaml
    volumes:
      - /path/to/your/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-     - /path/to/your/dashboard/config.yaml:/etc/config/config.yaml:ro
+     - /path/to/your/homedash/config.yaml:/etc/config/config.yaml:ro
    ```
 
-3. Build and run:
+3. Run with Docker Compose:
    ```bash
-   docker-compose up --build -d
+   docker-compose up -d
    ```
 
 4. Access your dashboard at `http://localhost:8080`
+
+## Development
+
+For development with local builds, use the development compose file:
+
+```bash
+# Development with local build
+docker-compose -f docker-compose.dev.yml up --build -d
+```
 
 ## Manual Docker Build
 

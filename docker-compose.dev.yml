@@ -1,0 +1,12 @@
+services:
+  homedash:
+    build: .
+    container_name: homedash
+    ports:
+      - "8524:8080"
+    volumes:
+      - /docker/config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /docker/config/homedash/config.yaml:/etc/config/config.yaml:ro
+    restart: unless-stopped
+    environment:
+      - PORT=8080
