@@ -32,6 +32,7 @@ type AppConfig struct {
 	Group     string `yaml:"group"`
 	Color     string `yaml:"color"`     // Custom color for the app group
 	GridCols  int    `yaml:"grid_cols"` // Custom grid columns for this group
+	Show      *bool  `yaml:"show"`      // Whether to show the app (defaults to true if not specified)
 }
 
 type AppGroup struct {
@@ -199,6 +200,11 @@ func parseCaddyfile(path string, config *Config) ([]App, error) {
 		
 		// Check if app has custom config
 		if appConfig, exists := config.Apps[name]; exists {
+			// Check if app should be shown (defaults to true if not specified)
+			if appConfig.Show != nil && !*appConfig.Show {
+				continue // Skip this app if show is explicitly set to false
+			}
+			
 			// Use custom title if provided, otherwise use default name
 			if appConfig.Title != "" {
 				displayName = appConfig.Title

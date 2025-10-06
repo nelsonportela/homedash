@@ -94,12 +94,18 @@ apps:
     icon_url: "https://example.com/path/to/icon.png"
     title: "Custom Display Name"
     group: "Category Name"
+    show: true  # Optional: show/hide app (defaults to true)
+  hiddenapp:
+    title: "Maintenance Tool"
+    group: "Development"
+    show: false  # This app will be hidden from the dashboard
 ```
 
 **Available app attributes:**
 - `icon_url`: Direct URL to app icon image
 - `title`: Custom display name (overrides default from Caddyfile)
 - `group`: Category for organizing apps (e.g., "Media", "Monitoring", "Development")
+- `show`: Boolean to control app visibility (defaults to `true` if not specified)
 
 - Icons are loaded directly from the specified URLs
 - If no custom icon is specified, 🔗 emoji is used as fallback
