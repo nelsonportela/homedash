@@ -17,6 +17,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const Version = "v0.3.0"
+
 type App struct {
 	Name    string
 	Title   string
@@ -30,6 +32,7 @@ type AppConfig struct {
 	IconURL   string `yaml:"icon_url"`
 	Title     string `yaml:"title"`
 	Group     string `yaml:"group"`
+	URL       string `yaml:"url"`       // Manual URL for standalone apps not in Caddyfile
 	Color     string `yaml:"color"`     // Custom color for the app group
 	GridCols  int    `yaml:"grid_cols"` // Custom grid columns for this group
 	Show      *bool  `yaml:"show"`      // Whether to show the app (defaults to true if not specified)
@@ -251,6 +254,66 @@ func parseCaddyfile(path string, config *Config) ([]App, error) {
 	return apps, nil
 }
 
+func getManualApps(config *Config) []App {
+	var apps []App
+	
+	for name, appConfig := range config.Apps {
+		// Only process entries that have a URL (manual entries)
+		if appConfig.URL == "" {
+			continue
+		}
+		
+		// Check if app should be shown (defaults to true if not specified)
+		if appConfig.Show != nil && !*appConfig.Show {
+			continue
+		}
+		
+		var icon string
+		var iconURL string
+		var displayName string
+		var group string
+		
+		// Use custom title if provided, otherwise use the config key name
+		if appConfig.Title != "" {
+			displayName = appConfig.Title
+		} else {
+			displayName = strings.Title(name)
+		}
+		
+		// Use custom group if provided, otherwise use "Other"
+		if appConfig.Group != "" {
+			group = appConfig.Group
+		} else {
+			group = "Other"
+		}
+		
+		// Handle custom icon URL
+		if appConfig.IconURL != "" {
+			// Download and get local path
+			if localPath, err := downloadIcon(appConfig.IconURL, name); err == nil {
+				iconURL = localPath
+			} else {
+				log.Printf("Failed to download icon for %s: %v", name, err)
+				icon = "🔗"
+			}
+		} else {
+			// Use default icon
+			icon = "🔗"
+		}
+		
+		apps = append(apps, App{
+			Name:    name,        // The identifier from config
+			Title:   displayName, // The display name (custom title or default)
+			URL:     appConfig.URL,
+			Icon:    icon,
+			IconURL: iconURL,
+			Group:   group,
+		})
+	}
+	
+	return apps
+}
+
 func organizeAppsByGroup(apps []App, config *Config) []AppGroup {
 	groupMap := make(map[string][]App)
 	
@@ -361,7 +424,11 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	groups := organizeAppsByGroup(apps, config)
+	// Get manual apps from config and merge them
+	manualApps := getManualApps(config)
+	allApps := append(apps, manualApps...)
+	
+	groups := organizeAppsByGroup(allApps, config)
 	
 	// Use configured title or default
 	title := config.Title
