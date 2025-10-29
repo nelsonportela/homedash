@@ -1,3 +1,37 @@
+// Health check async logic
+window.addEventListener('DOMContentLoaded', () => {
+  const healthLoading = document.getElementById('healthLoading');
+  const servicesDownGroup = document.getElementById('servicesDownGroup');
+  const servicesDownApps = document.getElementById('servicesDownApps');
+  if (!healthLoading) return;
+  fetch('/api/health')
+    .then(res => res.json())
+    .then(data => {
+      healthLoading.style.display = 'none';
+      if (data && data.down && Object.keys(data.down).length > 0) {
+        // Find all app shortcuts
+        const allApps = document.querySelectorAll('.app-item');
+        let found = 0;
+        allApps.forEach(app => {
+          const appName = app.getAttribute('data-app-name');
+          if (data.down[appName]) {
+            // Move to Services Down group
+            servicesDownApps.appendChild(app);
+            found++;
+          }
+        });
+        if (found > 0) {
+          servicesDownGroup.classList.remove('hidden');
+        }
+      } else {
+        servicesDownGroup.classList.add('hidden');
+      }
+    })
+    .catch(() => {
+      healthLoading.style.display = 'none';
+      // Optionally show error
+    });
+});
 // Theme management
 const themeToggle = document.getElementById('themeToggle');
 const sunIcon = document.getElementById('sunIcon');

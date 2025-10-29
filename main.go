@@ -3,23 +3,61 @@ package main
 import (
 	"crypto/md5"
 	"crypto/tls"
-	"fmt"
-	"html/template"
-	"io"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
-	"strings"
-	"time"
-
-	"gopkg.in/yaml.v3"
-)
+       "fmt"
+       "html/template"
+       "io"
+       "io/ioutil"
+       "log"
+       "net/http"
+       "os"
+       "path/filepath"
+       "regexp"
+       "sort"
+       "strings"
+       "time"
+       "gopkg.in/yaml.v3"
+	)
 
 const Version = "v0.4.0"
+	
+// HealthCheckResult represents the health status of all apps
+type HealthCheckResult struct {
+       Down map[string]bool `json:"down"` // app name -> isDown
+}
+
+// Serve health check results as JSON
+func healthAPIHandler(w http.ResponseWriter, r *http.Request) {
+       config, err := loadConfig("/etc/config/config.yaml")
+       if err != nil {
+	       http.Error(w, "Failed to load config", 500)
+	       return
+       }
+       apps, err := parseCaddyfile("/etc/caddy/Caddyfile", config)
+       if err != nil {
+	       http.Error(w, "Failed to parse Caddyfile", 500)
+	       return
+       }
+       manualApps := getManualApps(config)
+       allApps := append(apps, manualApps...)
+
+       down := make(map[string]bool)
+       for _, app := range allApps {
+	       if app.URL != "" {
+		       if !isServiceUp(app.URL) {
+			       down[app.Name] = true
+		       }
+	       }
+       }
+       w.Header().Set("Content-Type", "application/json")
+       w.WriteHeader(200)
+       io.WriteString(w, "{\"down\":{")
+       first := true
+       for k, v := range down {
+	       if !first { io.WriteString(w, ",") } else { first = false }
+	       io.WriteString(w, fmt.Sprintf("\"%s\":%v", k, v))
+       }
+       io.WriteString(w, "}}")
+}
 
 type App struct {
 	Name    string
@@ -473,44 +511,8 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
        manualApps := getManualApps(config)
        allApps := append(apps, manualApps...)
 
-       // Health check: if enabled, mark down services
-       var downApps []App
-       var upApps []App
-       if config.CheckServices {
-	       log.Printf("[dashboard] Service health checks enabled. Checking all app URLs...")
-	       for _, app := range allApps {
-		       // Only check apps with a URL
-		       if app.URL != "" {
-			       if isServiceUp(app.URL) {
-				       upApps = append(upApps, app)
-			       } else {
-				       app.Down = true
-				       downApps = append(downApps, app)
-				       log.Printf("[dashboard] App DOWN: %s (%s)", app.Title, app.URL)
-			       }
-		       } else {
-			       upApps = append(upApps, app)
-		       }
-	       }
-	       log.Printf("[dashboard] Health check complete. %d up, %d down.", len(upApps), len(downApps))
-       } else {
-	       log.Printf("[dashboard] Service health checks disabled.")
-	       upApps = allApps
-       }
-
-       groups := organizeAppsByGroup(upApps, config)
-
-       // Add Services Down group at the end if any
-       if config.CheckServices && len(downApps) > 0 {
-	       log.Printf("[dashboard] Adding 'Services Down' group with %d app(s)", len(downApps))
-	       downGroup := AppGroup{
-		       Name:     "Services Down",
-		       Apps:     downApps,
-		       Color:    "#9CA3AF", // Gray
-		       GridCols: "12",
-	       }
-	       groups = append(groups, downGroup)
-       }
+       // Organize all apps by group (no health check)
+       groups := organizeAppsByGroup(allApps, config)
 
        // Use configured title or default
        title := config.Title
@@ -600,6 +602,7 @@ func main() {
 	http.HandleFunc("/icons/", iconHandler)
 	http.HandleFunc("/refresh", refreshHandler)
 	http.HandleFunc("/static/", staticHandler)
+	http.HandleFunc("/api/health", healthAPIHandler)
 	log.Printf("Dashboard running on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

@@ -137,6 +137,14 @@
       <p class="theme-text-muted">Try adjusting your search terms</p>
     </div>
 
+    <!-- Loading indicator for health checks -->
+    <div id="healthLoading" class="flex flex-col items-center justify-center py-8">
+      <svg class="animate-spin h-8 w-8 text-blue-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg>
+      <span class="theme-text-muted">Checking service health...</span>
+    </div>
     <!-- App Groups -->
     <div id="appGroups" class="grid grid-cols-1 md:grid-cols-12 gap-6">
       {{range .Groups}}
@@ -164,6 +172,13 @@
         </div>
       </div>
       {{end}}
+      <!-- Services Down group, injected by JS if needed -->
+      <div id="servicesDownGroup" class="app-group col-span-1 md:col-span-12 hidden" data-group-name="Services Down">
+        <h2 class="text-xl font-semibold mb-3 theme-text border-b pb-2 group-border" style="--group-color: #9CA3AF; border-color: #9CA3AF;">
+          Services Down
+        </h2>
+        <div class="app-grid-auto" id="servicesDownApps"></div>
+      </div>
     </div>
   </div>
 
