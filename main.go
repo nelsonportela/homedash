@@ -18,7 +18,25 @@ import (
        "gopkg.in/yaml.v3"
 	)
 
-const Version = "v0.4.0"
+const Version = "v0.4.1"
+
+// HealthCheckProgress holds progress state for polling
+type HealthCheckProgress struct {
+	Checked int `json:"checked"`
+	Total   int `json:"total"`
+}
+
+var (
+	healthProgress HealthCheckProgress
+	healthProgressChan = make(chan struct{}, 1)
+)
+
+// Serve health check progress as JSON
+func healthProgressHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	io.WriteString(w, fmt.Sprintf(`{"checked":%d,"total":%d}`, healthProgress.Checked, healthProgress.Total))
+}
 	
 // HealthCheckResult represents the health status of all apps
 type HealthCheckResult struct {
@@ -41,12 +59,17 @@ func healthAPIHandler(w http.ResponseWriter, r *http.Request) {
        allApps := append(apps, manualApps...)
 
        down := make(map[string]bool)
+       // Set up progress tracking
+       healthProgress.Total = len(allApps)
+       healthProgress.Checked = 0
        for _, app := range allApps {
 	       if app.URL != "" {
 		       if !isServiceUp(app.URL) {
 			       down[app.Name] = true
 		       }
 	       }
+	       healthProgress.Checked++
+	       select { case healthProgressChan <- struct{}{}: default: }
        }
        w.Header().Set("Content-Type", "application/json")
        w.WriteHeader(200)
@@ -603,6 +626,7 @@ func main() {
 	http.HandleFunc("/refresh", refreshHandler)
 	http.HandleFunc("/static/", staticHandler)
 	http.HandleFunc("/api/health", healthAPIHandler)
+	http.HandleFunc("/api/health/progress", healthProgressHandler)
 	log.Printf("Dashboard running on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
