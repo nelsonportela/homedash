@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/tls"
 	"fmt"
 	"html/template"
 	"io"
@@ -13,11 +14,12 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-const Version = "v0.3.0"
+const Version = "v0.4.0"
 
 type App struct {
 	Name    string
@@ -26,6 +28,7 @@ type App struct {
 	Icon    string
 	IconURL string // Local icon URL path
 	Group   string
+	Down    bool   // Service health status (true if down)
 }
 
 type AppConfig struct {
@@ -52,11 +55,53 @@ type DashboardData struct {
 }
 
 type Config struct {
-	Title        string                   `yaml:"title"`
-	DefaultTheme string                   `yaml:"default_theme"` // "dark" or "light"
-	Groups       map[string]GroupConfig   `yaml:"groups"`        // Group-specific settings
-	GroupOrder   []string                 // Preserves the order from YAML
-	Apps         map[string]AppConfig     `yaml:"apps"`
+	Title         string                   `yaml:"title"`
+	DefaultTheme  string                   `yaml:"default_theme"` // "dark" or "light"
+	CheckServices bool                     `yaml:"check_services"` // Enable health checks
+	Groups        map[string]GroupConfig   `yaml:"groups"`        // Group-specific settings
+	GroupOrder    []string                 // Preserves the order from YAML
+	Apps          map[string]AppConfig     `yaml:"apps"`
+}
+// Health check: ping the app's URL and return true if reachable, false if not
+func isServiceUp(url string) bool {
+       if url == "" {
+	       log.Printf("[healthcheck] Skipping health check (no URL)")
+	       return true // No URL, treat as always up
+       }
+       log.Printf("[healthcheck] Checking %s", url)
+       tr := &http.Transport{
+	       TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+       }
+       client := http.Client{
+	       Timeout: 5 * time.Second, // 5 seconds
+	       Transport: tr,
+	       CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		       // Allow up to 10 redirects
+		       if len(via) >= 10 {
+			       return http.ErrUseLastResponse
+		       }
+		       return nil
+	       },
+       }
+       req, err := http.NewRequest("GET", url, nil)
+       if err != nil {
+	       log.Printf("[healthcheck] DOWN: %s (request error: %v)", url, err)
+	       return false
+       }
+       req.Header.Set("User-Agent", "HomeDash-HealthCheck/1.0")
+       resp, err := client.Do(req)
+       if err != nil {
+	       log.Printf("[healthcheck] DOWN: %s (error: %v)", url, err)
+	       return false
+       }
+       defer resp.Body.Close()
+       log.Printf("[healthcheck] %s status: %d, proto: %s, redirected: %v", url, resp.StatusCode, resp.Proto, len(resp.Request.URL.String()) != len(url))
+       if (resp.StatusCode >= 200 && resp.StatusCode < 400) || resp.StatusCode == 401 || resp.StatusCode == 403 {
+	       log.Printf("[healthcheck] UP: %s (status: %d)", url, resp.StatusCode)
+	       return true
+       }
+       log.Printf("[healthcheck] DOWN: %s (status: %d)", url, resp.StatusCode)
+       return false
 }
 
 type GroupConfig struct {
@@ -408,54 +453,91 @@ func organizeAppsByGroup(apps []App, config *Config) []AppGroup {
 }
 
 func dashboardHandler(w http.ResponseWriter, r *http.Request) {
-	config, err := loadConfig("/etc/config/config.yaml")
-	if err != nil {
-		log.Printf("Failed to load config: %v", err)
-		config = &Config{
-			Apps:       make(map[string]AppConfig),
-			Groups:     make(map[string]GroupConfig),
-			GroupOrder: []string{},
-		}
-	}
-	
-	apps, err := parseCaddyfile("/etc/caddy/Caddyfile", config)
-	if err != nil {
-		http.Error(w, "Failed to parse Caddyfile", 500)
-		return
-	}
-	
-	// Get manual apps from config and merge them
-	manualApps := getManualApps(config)
-	allApps := append(apps, manualApps...)
-	
-	groups := organizeAppsByGroup(allApps, config)
-	
-	// Use configured title or default
-	title := config.Title
-	if title == "" {
-		title = "HomeDash"
-	}
-	
-	// Use configured theme or default
-	defaultTheme := config.DefaultTheme
-	if defaultTheme == "" {
-		defaultTheme = "dark"
-	}
-	
-	data := DashboardData{
-		Title:        title,
-		Groups:       groups,
-		DefaultTheme: defaultTheme,
-	}
-	
-	// Load template from file
-	tmpl, err := template.ParseFiles("templates/dashboard.html")
-	if err != nil {
-		http.Error(w, "Template file not found: "+err.Error(), 500)
-		return
-	}
-	
-	tmpl.Execute(w, data)
+       config, err := loadConfig("/etc/config/config.yaml")
+       if err != nil {
+	       log.Printf("Failed to load config: %v", err)
+	       config = &Config{
+		       Apps:       make(map[string]AppConfig),
+		       Groups:     make(map[string]GroupConfig),
+		       GroupOrder: []string{},
+	       }
+       }
+
+       apps, err := parseCaddyfile("/etc/caddy/Caddyfile", config)
+       if err != nil {
+	       http.Error(w, "Failed to parse Caddyfile", 500)
+	       return
+       }
+
+       // Get manual apps from config and merge them
+       manualApps := getManualApps(config)
+       allApps := append(apps, manualApps...)
+
+       // Health check: if enabled, mark down services
+       var downApps []App
+       var upApps []App
+       if config.CheckServices {
+	       log.Printf("[dashboard] Service health checks enabled. Checking all app URLs...")
+	       for _, app := range allApps {
+		       // Only check apps with a URL
+		       if app.URL != "" {
+			       if isServiceUp(app.URL) {
+				       upApps = append(upApps, app)
+			       } else {
+				       app.Down = true
+				       downApps = append(downApps, app)
+				       log.Printf("[dashboard] App DOWN: %s (%s)", app.Title, app.URL)
+			       }
+		       } else {
+			       upApps = append(upApps, app)
+		       }
+	       }
+	       log.Printf("[dashboard] Health check complete. %d up, %d down.", len(upApps), len(downApps))
+       } else {
+	       log.Printf("[dashboard] Service health checks disabled.")
+	       upApps = allApps
+       }
+
+       groups := organizeAppsByGroup(upApps, config)
+
+       // Add Services Down group at the end if any
+       if config.CheckServices && len(downApps) > 0 {
+	       log.Printf("[dashboard] Adding 'Services Down' group with %d app(s)", len(downApps))
+	       downGroup := AppGroup{
+		       Name:     "Services Down",
+		       Apps:     downApps,
+		       Color:    "#9CA3AF", // Gray
+		       GridCols: "12",
+	       }
+	       groups = append(groups, downGroup)
+       }
+
+       // Use configured title or default
+       title := config.Title
+       if title == "" {
+	       title = "HomeDash"
+       }
+
+       // Use configured theme or default
+       defaultTheme := config.DefaultTheme
+       if defaultTheme == "" {
+	       defaultTheme = "dark"
+       }
+
+       data := DashboardData{
+	       Title:        title,
+	       Groups:       groups,
+	       DefaultTheme: defaultTheme,
+       }
+
+       // Load template from file
+       tmpl, err := template.ParseFiles("templates/dashboard.html")
+       if err != nil {
+	       http.Error(w, "Template file not found: "+err.Error(), 500)
+	       return
+       }
+
+       tmpl.Execute(w, data)
 }
 
 func refreshHandler(w http.ResponseWriter, r *http.Request) {

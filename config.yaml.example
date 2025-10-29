@@ -4,6 +4,9 @@ title: "My Personal Dashboard"
 # Default theme: "dark" or "light" (optional, defaults to "dark")
 default_theme: "dark"
 
+# Enable service health checks (optional, defaults to false)
+check_services: true
+
 # Group-specific settings (optional)
 groups:
   Media:
