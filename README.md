@@ -25,24 +25,30 @@ This project includes two Docker Compose configurations:
    ```yaml
    title: "My HomeLab Dashboard"
    default_theme: "dark"
-   
-   apps:
-     # Caddyfile-based apps (customization only)
-     menu:
-       icon_url: "https://cdn-icons-png.flaticon.com/512/1827/1827933.png"
-       title: "Menu Manager"
-       group: "Network"
-     dozzle:
-       icon_url: "https://raw.githubusercontent.com/amir20/dozzle/master/assets/logo.png"
-       title: "Docker Logs"
-       group: "Monitoring"
-     
-     # Manual URL entries (external services)
-     adguard:
-       url: "https://adguard.vps.example.com"
-       icon_url: "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardHome@master/internal/home/web/favicon.png"
-       title: "AdGuard Home"
-       group: "Network"
+
+   groups:
+     Network:
+       color: "#3B82F6"
+       grid_cols: 6
+       apps:
+         # Caddyfile-based app (no URL needed)
+         menu:
+           icon_url: "https://cdn-icons-png.flaticon.com/512/1827/1827933.png"
+           title: "Menu Manager"
+
+         # Manual URL entry (external service)
+         adguard:
+           url: "https://adguard.vps.example.com"
+           icon_url: "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardHome@master/internal/home/web/favicon.png"
+           title: "AdGuard Home"
+
+     Monitoring:
+       color: "#F59E0B"
+       grid_cols: 6
+       apps:
+         dozzle:
+           icon_url: "https://raw.githubusercontent.com/amir20/dozzle/master/assets/logo.png"
+           title: "Docker Logs"
    ```
 
 2. Update the volume paths in `docker-compose.yml` to point to your actual files:
@@ -90,32 +96,44 @@ docker run -d \
 
 ### App Configuration
 
-The `config.yaml` file allows you to customize apps and dashboard settings:
+The `config.yaml` file organizes configuration by groups. Each group controls its display and contains its apps:
 
 ```yaml
-# Dashboard settings
 title: "My HomeLab"
 default_theme: "dark"  # or "light"
 
-# App configurations
-apps:
-  appname:
-    icon_url: "https://example.com/path/to/icon.png"
-    title: "Custom Display Name"
-    group: "Category Name"
-    show: true  # Optional: show/hide app (defaults to true)
-  hiddenapp:
-    title: "Maintenance Tool"
-    group: "Development"
-    show: false  # This app will be hidden from the dashboard
+groups:
+  Media:
+    color: "#10B981"   # Optional accent color
+    grid_cols: 6        # Columns (2-12) on desktop
+    apps:
+      jellyfin:
+        icon_url: "https://cdn.jsdelivr.net/gh/selfhst/icons/webp/jellyfin.webp"
+      radarr:
+        icon_url: "https://cdn.jsdelivr.net/gh/selfhst/icons/webp/radarr.webp"
+
+  Network:
+    color: "#3B82F6"
+    grid_cols: 6
+    apps:
+      adguard:
+        url: "https://adguard.example.com"
+        icon_url: "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardHome@master/internal/home/web/favicon.png"
+        title: "AdGuard Home"
+      pihole:
+        icon_url: "https://cdn.jsdelivr.net/gh/selfhst/icons/webp/pi-hole.webp"
 ```
 
-**Available app attributes:**
-- `url`: Manual URL for standalone apps not in Caddyfile (required for manual entries)
-- `icon_url`: Direct URL to app icon image
-- `title`: Custom display name (overrides default from Caddyfile or config key)
-- `group`: Category for organizing apps (e.g., "Media", "Monitoring", "Development")
-- `show`: Boolean to control app visibility (defaults to `true` if not specified)
+Group fields:
+- `color`: Hex color for group accent.
+- `grid_cols`: Number of columns (2-12) for group width on desktop.
+- `apps`: Map of app definitions (keys become app names).
+
+App fields:
+- `url`: Manual URL for standalone apps not in Caddyfile (omit for Caddyfile-discovered apps).
+- `icon_url`: Direct URL to app icon image.
+- `title`: Custom display name (defaults to capitalized key).
+- `show`: Boolean to control app visibility (defaults to true).
 
 ### Manual URL Entries
 
@@ -123,26 +141,27 @@ HomeDash supports two types of app entries:
 
 1. **Caddyfile-based apps**: Automatically discovered from your Caddyfile
    - URLs are extracted automatically from Caddyfile patterns
-   - Only need configuration for customization (icon, title, group, etc.)
+   - Only need configuration for customization (icon, title, etc.)
 
 2. **Manual URL entries**: External services not proxied through Caddyfile
    - Must include `url` field with the complete URL
    - Perfect for external VPS services, cloud applications, or other instances
-   - Will be mixed with Caddyfile entries in the same groups
 
-Example manual entries:
+Example manual entries (nested under groups):
 ```yaml
-apps:
-  adguard:
-    url: "https://adguard.vps.example.com"
-    icon_url: "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardHome@master/internal/home/web/favicon.png"
-    title: "AdGuard Home"
-    group: "Network"
-  grafana:
-    url: "https://grafana.example.com"
-    icon_url: "https://grafana.com/static/img/menu/grafana2.svg"
-    title: "Monitoring Dashboard"
-    group: "Monitoring"
+groups:
+  Network:
+    apps:
+      adguard:
+        url: "https://adguard.vps.example.com"
+        icon_url: "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardHome@master/internal/home/web/favicon.png"
+        title: "AdGuard Home"
+  Monitoring:
+    apps:
+      grafana:
+        url: "https://grafana.example.com"
+        icon_url: "https://grafana.com/static/img/menu/grafana2.svg"
+        title: "Monitoring Dashboard"
 ```
 
 - Icons are loaded directly from the specified URLs
