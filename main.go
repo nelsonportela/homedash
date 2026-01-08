@@ -1,86 +1,24 @@
 package main
 
 import (
-	"crypto/md5"
-	"crypto/tls"
-       "fmt"
-       "html/template"
-       "io"
-       "io/ioutil"
-       "log"
-       "net/http"
-       "os"
-       "path/filepath"
-       "regexp"
-       "sort"
-       "strings"
-       "time"
-       "gopkg.in/yaml.v3"
-	)
+	 "crypto/md5"
+		 "fmt"
+		 "html/template"
+		 "io"
+		 "io/ioutil"
+		 "log"
+		 "net/http"
+		 "os"
+		 "path/filepath"
+		 "regexp"
+		 "sort"
+		 "strings"
+		 "gopkg.in/yaml.v3"
+	 )
 
-const Version = "v0.4.1"
+const Version = "v0.5.0"
 
-// HealthCheckProgress holds progress state for polling
-type HealthCheckProgress struct {
-	Checked int `json:"checked"`
-	Total   int `json:"total"`
-}
-
-var (
-	healthProgress HealthCheckProgress
-	healthProgressChan = make(chan struct{}, 1)
-)
-
-// Serve health check progress as JSON
-func healthProgressHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	io.WriteString(w, fmt.Sprintf(`{"checked":%d,"total":%d}`, healthProgress.Checked, healthProgress.Total))
-}
-	
-// HealthCheckResult represents the health status of all apps
-type HealthCheckResult struct {
-       Down map[string]bool `json:"down"` // app name -> isDown
-}
-
-// Serve health check results as JSON
-func healthAPIHandler(w http.ResponseWriter, r *http.Request) {
-       config, err := loadConfig("/etc/config/config.yaml")
-       if err != nil {
-	       http.Error(w, "Failed to load config", 500)
-	       return
-       }
-       apps, err := parseCaddyfile("/etc/caddy/Caddyfile", config)
-       if err != nil {
-	       http.Error(w, "Failed to parse Caddyfile", 500)
-	       return
-       }
-       manualApps := getManualApps(config)
-       allApps := append(apps, manualApps...)
-
-       down := make(map[string]bool)
-       // Set up progress tracking
-       healthProgress.Total = len(allApps)
-       healthProgress.Checked = 0
-       for _, app := range allApps {
-	       if app.URL != "" {
-		       if !isServiceUp(app.URL) {
-			       down[app.Name] = true
-		       }
-	       }
-	       healthProgress.Checked++
-	       select { case healthProgressChan <- struct{}{}: default: }
-       }
-       w.Header().Set("Content-Type", "application/json")
-       w.WriteHeader(200)
-       io.WriteString(w, "{\"down\":{")
-       first := true
-       for k, v := range down {
-	       if !first { io.WriteString(w, ",") } else { first = false }
-	       io.WriteString(w, fmt.Sprintf("\"%s\":%v", k, v))
-       }
-       io.WriteString(w, "}}")
-}
+// (health check functionality removed)
 
 type App struct {
 	Name    string
@@ -89,17 +27,13 @@ type App struct {
 	Icon    string
 	IconURL string // Local icon URL path
 	Group   string
-	Down    bool   // Service health status (true if down)
 }
 
 type AppConfig struct {
 	IconURL   string `yaml:"icon_url"`
 	Title     string `yaml:"title"`
-	Group     string `yaml:"group"`
-	URL       string `yaml:"url"`       // Manual URL for standalone apps not in Caddyfile
-	Color     string `yaml:"color"`     // Custom color for the app group
-	GridCols  int    `yaml:"grid_cols"` // Custom grid columns for this group
-	Show      *bool  `yaml:"show"`      // Whether to show the app (defaults to true if not specified)
+	URL       string `yaml:"url"`  // Manual URL for standalone apps not in Caddyfile
+	Show      *bool  `yaml:"show"` // Whether to show the app (defaults to true if not specified)
 }
 
 type AppGroup struct {
@@ -118,56 +52,15 @@ type DashboardData struct {
 type Config struct {
 	Title         string                   `yaml:"title"`
 	DefaultTheme  string                   `yaml:"default_theme"` // "dark" or "light"
-	CheckServices bool                     `yaml:"check_services"` // Enable health checks
-	Groups        map[string]GroupConfig   `yaml:"groups"`        // Group-specific settings
+	Groups        map[string]GroupConfig   `yaml:"groups"`        // Groups with their apps
 	GroupOrder    []string                 // Preserves the order from YAML
-	Apps          map[string]AppConfig     `yaml:"apps"`
 }
-// Health check: ping the app's URL and return true if reachable, false if not
-func isServiceUp(url string) bool {
-       if url == "" {
-	       log.Printf("[healthcheck] Skipping health check (no URL)")
-	       return true // No URL, treat as always up
-       }
-       log.Printf("[healthcheck] Checking %s", url)
-       tr := &http.Transport{
-	       TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-       }
-       client := http.Client{
-	       Timeout: 5 * time.Second, // 5 seconds
-	       Transport: tr,
-	       CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		       // Allow up to 10 redirects
-		       if len(via) >= 10 {
-			       return http.ErrUseLastResponse
-		       }
-		       return nil
-	       },
-       }
-       req, err := http.NewRequest("GET", url, nil)
-       if err != nil {
-	       log.Printf("[healthcheck] DOWN: %s (request error: %v)", url, err)
-	       return false
-       }
-       req.Header.Set("User-Agent", "HomeDash-HealthCheck/1.0")
-       resp, err := client.Do(req)
-       if err != nil {
-	       log.Printf("[healthcheck] DOWN: %s (error: %v)", url, err)
-	       return false
-       }
-       defer resp.Body.Close()
-       log.Printf("[healthcheck] %s status: %d, proto: %s, redirected: %v", url, resp.StatusCode, resp.Proto, len(resp.Request.URL.String()) != len(url))
-       if (resp.StatusCode >= 200 && resp.StatusCode < 400) || resp.StatusCode == 401 || resp.StatusCode == 403 {
-	       log.Printf("[healthcheck] UP: %s (status: %d)", url, resp.StatusCode)
-	       return true
-       }
-       log.Printf("[healthcheck] DOWN: %s (status: %d)", url, resp.StatusCode)
-       return false
-}
+// (health check helper removed)
 
 type GroupConfig struct {
-	Color    string `yaml:"color"`     // Hex color for group accent
-	GridCols int    `yaml:"grid_cols"` // Custom grid columns (2-8)
+	Color    string                   `yaml:"color"`     // Hex color for group accent
+	GridCols int                      `yaml:"grid_cols"` // Custom grid columns (2-8)
+	Apps     map[string]AppConfig     `yaml:"apps"`      // Apps in this group
 }
 
 // Custom unmarshaler to preserve group order
@@ -213,7 +106,6 @@ func loadConfig(path string) (*Config, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		// Return empty config if file doesn't exist
 		return &Config{
-			Apps:       make(map[string]AppConfig),
 			Groups:     make(map[string]GroupConfig),
 			GroupOrder: []string{},
 		}, nil
@@ -230,9 +122,6 @@ func loadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
-	if config.Apps == nil {
-		config.Apps = make(map[string]AppConfig)
-	}
 	if config.Groups == nil {
 		config.Groups = make(map[string]GroupConfig)
 	}
@@ -305,10 +194,19 @@ func parseCaddyfile(path string, config *Config) ([]App, error) {
 		var icon string
 		var iconURL string
 		var displayName string
-		var group string
+		var groupName string
 		
-		// Check if app has custom config
-		if appConfig, exists := config.Apps[name]; exists {
+		// Find which group this app belongs to (look through all groups and their apps)
+		var appConfig *AppConfig
+		for gName, groupConfig := range config.Groups {
+			if ac, exists := groupConfig.Apps[name]; exists {
+				appConfig = &ac
+				groupName = gName
+				break
+			}
+		}
+		
+		if appConfig != nil {
 			// Check if app should be shown (defaults to true if not specified)
 			if appConfig.Show != nil && !*appConfig.Show {
 				continue // Skip this app if show is explicitly set to false
@@ -319,13 +217,6 @@ func parseCaddyfile(path string, config *Config) ([]App, error) {
 				displayName = appConfig.Title
 			} else {
 				displayName = strings.Title(name)
-			}
-			
-			// Use custom group if provided, otherwise use "Other"
-			if appConfig.Group != "" {
-				group = appConfig.Group
-			} else {
-				group = "Other"
 			}
 			
 			// Handle custom icon URL
@@ -342,10 +233,10 @@ func parseCaddyfile(path string, config *Config) ([]App, error) {
 				icon = "🔗"
 			}
 		} else {
-			// Use default name, icon, and group
+			// App not found in config, use defaults
 			displayName = strings.Title(name)
 			icon = "🔗"
-			group = "Other"
+			groupName = "Other"
 		}
 		
 		apps = append(apps, App{
@@ -354,7 +245,7 @@ func parseCaddyfile(path string, config *Config) ([]App, error) {
 			URL:     url,
 			Icon:    icon,
 			IconURL: iconURL,
-			Group:   group,
+			Group:   groupName,
 		})
 	}
 	return apps, nil
@@ -363,58 +254,53 @@ func parseCaddyfile(path string, config *Config) ([]App, error) {
 func getManualApps(config *Config) []App {
 	var apps []App
 	
-	for name, appConfig := range config.Apps {
-		// Only process entries that have a URL (manual entries)
-		if appConfig.URL == "" {
-			continue
-		}
-		
-		// Check if app should be shown (defaults to true if not specified)
-		if appConfig.Show != nil && !*appConfig.Show {
-			continue
-		}
-		
-		var icon string
-		var iconURL string
-		var displayName string
-		var group string
-		
-		// Use custom title if provided, otherwise use the config key name
-		if appConfig.Title != "" {
-			displayName = appConfig.Title
-		} else {
-			displayName = strings.Title(name)
-		}
-		
-		// Use custom group if provided, otherwise use "Other"
-		if appConfig.Group != "" {
-			group = appConfig.Group
-		} else {
-			group = "Other"
-		}
-		
-		// Handle custom icon URL
-		if appConfig.IconURL != "" {
-			// Download and get local path
-			if localPath, err := downloadIcon(appConfig.IconURL, name); err == nil {
-				iconURL = localPath
+	// Iterate through all groups and their apps
+	for groupName, groupConfig := range config.Groups {
+		for appName, appConfig := range groupConfig.Apps {
+			// Only process entries that have a URL (manual entries)
+			if appConfig.URL == "" {
+				continue
+			}
+			
+			// Check if app should be shown (defaults to true if not specified)
+			if appConfig.Show != nil && !*appConfig.Show {
+				continue
+			}
+			
+			var icon string
+			var iconURL string
+			var displayName string
+			
+			// Use custom title if provided, otherwise use the config key name
+			if appConfig.Title != "" {
+				displayName = appConfig.Title
 			} else {
-				log.Printf("Failed to download icon for %s: %v", name, err)
+				displayName = strings.Title(appName)
+			}
+			
+			// Handle custom icon URL
+			if appConfig.IconURL != "" {
+				// Download and get local path
+				if localPath, err := downloadIcon(appConfig.IconURL, appName); err == nil {
+					iconURL = localPath
+				} else {
+					log.Printf("Failed to download icon for %s: %v", appName, err)
+					icon = "🔗"
+				}
+			} else {
+				// Use default icon
 				icon = "🔗"
 			}
-		} else {
-			// Use default icon
-			icon = "🔗"
+			
+			apps = append(apps, App{
+				Name:    appName,      // The identifier from config
+				Title:   displayName,  // The display name (custom title or default)
+				URL:     appConfig.URL,
+				Icon:    icon,
+				IconURL: iconURL,
+				Group:   groupName,    // Group is now taken from the parent group
+			})
 		}
-		
-		apps = append(apps, App{
-			Name:    name,        // The identifier from config
-			Title:   displayName, // The display name (custom title or default)
-			URL:     appConfig.URL,
-			Icon:    icon,
-			IconURL: iconURL,
-			Group:   group,
-		})
 	}
 	
 	return apps
@@ -518,7 +404,6 @@ func dashboardHandler(w http.ResponseWriter, r *http.Request) {
        if err != nil {
 	       log.Printf("Failed to load config: %v", err)
 	       config = &Config{
-		       Apps:       make(map[string]AppConfig),
 		       Groups:     make(map[string]GroupConfig),
 		       GroupOrder: []string{},
 	       }
@@ -582,7 +467,6 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	
 	// Try to parse the Caddyfile to verify it's valid
 	config := &Config{
-		Apps:       make(map[string]AppConfig),
 		Groups:     make(map[string]GroupConfig),
 		GroupOrder: []string{},
 	}
@@ -625,8 +509,6 @@ func main() {
 	http.HandleFunc("/icons/", iconHandler)
 	http.HandleFunc("/refresh", refreshHandler)
 	http.HandleFunc("/static/", staticHandler)
-	http.HandleFunc("/api/health", healthAPIHandler)
-	http.HandleFunc("/api/health/progress", healthProgressHandler)
 	log.Printf("Dashboard running on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

@@ -4,94 +4,72 @@ title: "My Personal Dashboard"
 # Default theme: "dark" or "light" (optional, defaults to "dark")
 default_theme: "dark"
 
-# Enable service health checks (optional, defaults to false)
-check_services: true
-
-# Group-specific settings (optional)
+# Group-specific settings with apps organized by group
 groups:
   Media:
     color: "#10B981"    # Green accent color
     grid_cols: 6        # Show 6 columns for media apps
+    apps:
+      books:
+        icon_url: "https://cdn-icons-png.flaticon.com/512/2232/2232688.png"
+        title: "Library"
+        # show defaults to true if not specified
+  
   Network:
     color: "#3B82F6"    # Blue accent color
     grid_cols: 4        # Show 4 columns for network apps
+    apps:
+      # Caddyfile-based apps (no URL needed)
+      menu:
+        icon_url: "https://cdn-icons-png.flaticon.com/512/1827/1827933.png"
+        title: "Menu Manager"
+        show: true  # Optional: explicitly show this app (default behavior)
+      
+      # Manual URL entries (not in Caddyfile)
+      adguard:
+        url: "https://adguard.vps.example.com"
+        icon_url: "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardHome@master/internal/home/web/favicon.png"
+        title: "AdGuard Home"
+  
   Development:
     color: "#8B5CF6"    # Purple accent color
     grid_cols: 5        # Show 5 columns for dev apps
+    apps:
+      portainer:
+        url: "https://portainer.vps.example.com"
+        icon_url: "https://avatars.githubusercontent.com/u/22225832?s=200&v=4"
+        title: "Portainer"
+  
   Monitoring:
     color: "#F59E0B"    # Orange accent color
     grid_cols: 4        # Show 4 columns for monitoring apps
+    apps:
+      dozzle:
+        icon_url: "https://raw.githubusercontent.com/amir20/dozzle/master/assets/logo.png"
+        title: "Docker Logs"
+      
+      grafana:
+        url: "https://grafana.vps.example.com"
+        icon_url: "https://grafana.com/static/img/menu/grafana2.svg"
+        title: "Grafana"
+  
   Productivity:
     color: "#EF4444"    # Red accent color
     grid_cols: 6        # Show 6 columns for productivity apps
+    apps: {}            # No apps configured for this group yet
 
-apps:
-  # Caddyfile-based apps (customization only - no URL needed)
-  menu:
-    icon_url: "https://cdn-icons-png.flaticon.com/512/1827/1827933.png"
-    title: "Menu Manager"
-    group: "Network"
-    show: true  # Optional: explicitly show this app (default behavior)
-  dozzle:
-    icon_url: "https://raw.githubusercontent.com/amir20/dozzle/master/assets/logo.png"
-    title: "Docker Logs"
-    group: "Monitoring"
-    # show property not specified - defaults to true, so app will be displayed
-  books:
-    icon_url: "https://cdn-icons-png.flaticon.com/512/2232/2232688.png"
-    title: "Library"
-    group: "Media"
-  
-  # Manual URL entries (not in Caddyfile - require url field)
-  adguard:
-    url: "https://adguard.vps.example.com"
-    icon_url: "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardHome@master/internal/home/web/favicon.png"
-    title: "AdGuard Home"
-    group: "Network"
-  portainer:
-    url: "https://portainer.vps.example.com"
-    icon_url: "https://avatars.githubusercontent.com/u/22225832?s=200&v=4"
-    title: "Portainer"
-    group: "Development"
-  grafana:
-    url: "https://grafana.vps.example.com"
-    icon_url: "https://grafana.com/static/img/menu/grafana2.svg"
-    title: "Grafana"
-    group: "Monitoring"
-  # Example: Hide a specific app from the dashboard
-  # maintenanceapp:
-  #   icon_url: "https://example.com/maintenance-icon.png"
-  #   title: "Maintenance Tool"
-  #   group: "Development"
-  #   show: false  # This app will be hidden from the dashboard
-  # 
-  # Example: Apps without show property default to visible
-  # myapp:
-  #   icon_url: "https://example.com/path/to/icon.png"
-  #   title: "My Custom Application Name"
-  #   group: "Development"
-  #   # show defaults to true if not specified
-  #
-  # Available configuration options for each app:
-  # - url: Manual URL for standalone apps (if not in Caddyfile)
-  # - icon_url: URL to a custom icon for the app
-  # - title: Custom display name for the app
-  # - group: Group category for organizing apps
-  # - show: Boolean to control app visibility (defaults to true)
-  #
-  # Two types of app entries:
-  # 1. Caddyfile-based apps: Apps automatically discovered from Caddyfile
-  #    - Only need icon_url, title, group, show for customization
-  #    - URL is extracted from Caddyfile automatically
-  #
-  # 2. Manual URL entries: Standalone apps not in Caddyfile
-  #    - Must include "url" field with full URL
-  #    - Can include all other customization options
-  #    - Perfect for external services, other VPS instances, etc.
-  #
-  # Available groups (in display order):
-  # - Media
-  # - Network  
-  # - Development
-  # - Monitoring
-  # - Other (default if not specified)
+# Available configuration options for each app:
+# - url: Manual URL for standalone apps (if not in Caddyfile)
+# - icon_url: URL to a custom icon for the app
+# - title: Custom display name for the app
+# - show: Boolean to control app visibility (defaults to true)
+#
+# Two types of app entries:
+# 1. Caddyfile-based apps: Apps automatically discovered from Caddyfile
+#    - Only need icon_url, title, show for customization
+#    - URL is extracted from Caddyfile automatically
+#
+# 2. Manual URL entries: Standalone apps not in Caddyfile
+#    - Must include "url" field with full URL
+#    - Can include all other customization options
+#    - Perfect for external services, other VPS instances, etc.
